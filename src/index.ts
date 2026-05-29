@@ -28,7 +28,7 @@ class MSGraphMCPServer {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
 
     this.auth = new MSGraphAuth();
@@ -40,8 +40,13 @@ class MSGraphMCPServer {
    */
   private async initGraphClient(): Promise<void> {
     try {
-      this.auth.initialize();
-      
+      await this.auth.initialize();
+
+      // Warm up authentication (forces device-code flow in terminal if not already cached)
+      console.error("[Auth] Warming up authentication...");
+      await this.auth.getAccessToken();
+      console.error("[Auth] Authentication token successfully verified/cached");
+
       // Initialize Graph Client using custom Auth Provider wrapping MSAL auth
       this.graphClient = Client.initWithMiddleware({
         authProvider: {
@@ -51,9 +56,13 @@ class MSGraphMCPServer {
         },
       });
 
-      console.error("[Graph Client] Successfully initialized Microsoft Graph Client");
+      console.error(
+        "[Graph Client] Successfully initialized Microsoft Graph Client",
+      );
     } catch (error: any) {
-      console.error(`[Init Error] Failed to initialize Graph Client: ${error.message}`);
+      console.error(
+        `[Init Error] Failed to initialize Graph Client: ${error.message}`,
+      );
       process.exit(1);
     }
   }
@@ -107,20 +116,26 @@ class MSGraphMCPServer {
       // --- OUTLOOK (MAIL) ---
       case "outlook_list_messages": {
         const top = args.top || 10;
-        let query = this.graphClient.api("/me/mailFolders/inbox/messages").top(top);
+        let query = this.graphClient
+          .api("/me/mailFolders/inbox/messages")
+          .top(top);
         if (args.filter) {
           query = query.filter(args.filter);
         }
-        return await query.select("id,subject,from,receivedDateTime,isRead,bodyPreview").get();
+        return await query
+          .select("id,subject,from,receivedDateTime,isRead,bodyPreview")
+          .get();
       }
 
       case "outlook_get_message": {
-        return await this.graphClient.api(`/me/messages/${args.messageId}`).get();
+        return await this.graphClient
+          .api(`/me/messages/${args.messageId}`)
+          .get();
       }
 
       case "outlook_send_mail": {
         const recipients = args.to.map((email: string) => ({
-          emailAddress: { address: email }
+          emailAddress: { address: email },
         }));
         const message = {
           subject: args.subject,
@@ -129,7 +144,7 @@ class MSGraphMCPServer {
             content: args.body,
           },
           toRecipients: recipients,
-          importance: args.importance || "normal"
+          importance: args.importance || "normal",
         };
         await this.graphClient.api("/me/sendMail").post({ message });
         return { status: "success", message: "Email sent successfully" };
@@ -137,7 +152,7 @@ class MSGraphMCPServer {
 
       case "outlook_create_draft": {
         const recipients = args.to.map((email: string) => ({
-          emailAddress: { address: email }
+          emailAddress: { address: email },
         }));
         const message = {
           subject: args.subject,
@@ -145,7 +160,7 @@ class MSGraphMCPServer {
             contentType: args.body.includes("<") ? "html" : "text",
             content: args.body,
           },
-          toRecipients: recipients
+          toRecipients: recipients,
         };
         return await this.graphClient.api("/me/messages").post(message);
       }
@@ -164,7 +179,7 @@ class MSGraphMCPServer {
           .api("/me/calendarView")
           .query({
             startDateTime: args.startDateTime,
-            endDateTime: args.endDateTime
+            endDateTime: args.endDateTime,
           })
           .select("id,subject,start,end,location,attendees")
           .get();
@@ -177,23 +192,27 @@ class MSGraphMCPServer {
       case "calendar_create_event": {
         const event = {
           subject: args.subject,
-          body: args.body ? {
-            contentType: "text",
-            content: args.body
-          } : undefined,
+          body: args.body
+            ? {
+                contentType: "text",
+                content: args.body,
+              }
+            : undefined,
           start: {
             dateTime: args.startDateTime,
-            timeZone: "UTC"
+            timeZone: "UTC",
           },
           end: {
             dateTime: args.endDateTime,
-            timeZone: "UTC"
+            timeZone: "UTC",
           },
           location: args.location ? { displayName: args.location } : undefined,
-          attendees: args.attendees ? args.attendees.map((email: string) => ({
-            emailAddress: { address: email },
-            type: "required"
-          })) : []
+          attendees: args.attendees
+            ? args.attendees.map((email: string) => ({
+                emailAddress: { address: email },
+                type: "required",
+              }))
+            : [],
         };
         return await this.graphClient.api("/me/events").post(event);
       }
@@ -213,7 +232,9 @@ class MSGraphMCPServer {
         if (args.location) {
           updates.location = { displayName: args.location };
         }
-        return await this.graphClient.api(`/me/events/${args.eventId}`).update(updates);
+        return await this.graphClient
+          .api(`/me/events/${args.eventId}`)
+          .update(updates);
       }
 
       case "calendar_delete_event": {
@@ -227,20 +248,27 @@ class MSGraphMCPServer {
       }
 
       case "onedrive_list_folder": {
-        return await this.graphClient.api(`/me/drive/items/${args.folderId}/children`).get();
+        return await this.graphClient
+          .api(`/me/drive/items/${args.folderId}/children`)
+          .get();
       }
 
       case "onedrive_search_files": {
-        return await this.graphClient.api(`/me/drive/root/search(q='${args.query}')`).get();
+        const q = String(args.query).replace(/'/g, "''");
+        return await this.graphClient
+          .api(`/me/drive/root/search(q='${q}')`)
+          .get();
       }
 
       case "onedrive_download_file": {
-        return await this.graphClient.api(`/me/drive/items/${args.fileId}`).get();
+        return await this.graphClient
+          .api(`/me/drive/items/${args.fileId}`)
+          .get();
       }
 
       case "onedrive_upload_file": {
-        const folderPath = args.parentFolderId 
-          ? `/me/drive/items/${args.parentFolderId}/children/${args.filename}/content`
+        const folderPath = args.parentFolderId
+          ? `/me/drive/items/${args.parentFolderId}:/${args.filename}:/content`
           : `/me/drive/root:/${args.filename}:/content`;
         return await this.graphClient.api(folderPath).put(args.content);
       }
@@ -252,13 +280,13 @@ class MSGraphMCPServer {
         const folder = {
           name: args.folderName,
           folder: {},
-          "@microsoft.graph.conflictBehavior": "rename"
+          "@microsoft.graph.conflictBehavior": "rename",
         };
         return await this.graphClient.api(parentPath).post(folder);
       }
 
       case "sharepoint_list_sites": {
-        const apiPath = args.searchQuery 
+        const apiPath = args.searchQuery
           ? `/sites?search=${encodeURIComponent(args.searchQuery)}`
           : "/sites?search=*";
         return await this.graphClient.api(apiPath).get();
@@ -277,15 +305,12 @@ class MSGraphMCPServer {
       case "teams_send_chat_message": {
         const message = {
           body: {
-            content: args.content
-          }
+            content: args.content,
+          },
         };
-        return await this.graphClient.api(`/chats/${args.chatId}/messages`).post(message);
-      }
-
-      // --- POWER BI ---
-      case "powerbi_list_reports": {
-        return await this.graphClient.api("/me/reports").get();
+        return await this.graphClient
+          .api(`/chats/${args.chatId}/messages`)
+          .post(message);
       }
 
       default:

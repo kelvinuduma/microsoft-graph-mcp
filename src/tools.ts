@@ -4,14 +4,21 @@ export const MS_GRAPH_TOOLS: Tool[] = [
   // --- OUTLOOK (MAIL) ---
   {
     name: "outlook_list_messages",
-    description: "Retrieve a list of recent email messages from the user's Inbox.",
+    description:
+      "Retrieve a list of recent email messages from the user's Inbox.",
     inputSchema: {
       type: "object",
       properties: {
-        top: { type: "number", description: "Number of emails to return (default: 10, max: 50)" },
-        filter: { type: "string", description: "OData filter query (e.g. \"isRead eq false\")" }
-      }
-    }
+        top: {
+          type: "number",
+          description: "Number of emails to return (default: 10, max: 50)",
+        },
+        filter: {
+          type: "string",
+          description: 'OData filter query (e.g. "isRead eq false")',
+        },
+      },
+    },
   },
   {
     name: "outlook_get_message",
@@ -19,10 +26,13 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        messageId: { type: "string", description: "The unique ID of the email message" }
+        messageId: {
+          type: "string",
+          description: "The unique ID of the email message",
+        },
       },
-      required: ["messageId"]
-    }
+      required: ["messageId"],
+    },
   },
   {
     name: "outlook_send_mail",
@@ -30,13 +40,24 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        to: { type: "array", items: { type: "string" }, description: "Recipient email addresses" },
+        to: {
+          type: "array",
+          items: { type: "string" },
+          description: "Recipient email addresses",
+        },
         subject: { type: "string", description: "Email subject line" },
-        body: { type: "string", description: "HTML or plain text email body content" },
-        importance: { type: "string", enum: ["low", "normal", "high"], description: "Email importance level" }
+        body: {
+          type: "string",
+          description: "HTML or plain text email body content",
+        },
+        importance: {
+          type: "string",
+          enum: ["low", "normal", "high"],
+          description: "Email importance level",
+        },
       },
-      required: ["to", "subject", "body"]
-    }
+      required: ["to", "subject", "body"],
+    },
   },
   {
     name: "outlook_create_draft",
@@ -44,23 +65,34 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        to: { type: "array", items: { type: "string" }, description: "Recipient email addresses" },
+        to: {
+          type: "array",
+          items: { type: "string" },
+          description: "Recipient email addresses",
+        },
         subject: { type: "string", description: "Email subject line" },
-        body: { type: "string", description: "HTML or plain text body content" }
+        body: {
+          type: "string",
+          description: "HTML or plain text body content",
+        },
       },
-      required: ["to", "subject", "body"]
-    }
+      required: ["to", "subject", "body"],
+    },
   },
   {
     name: "outlook_search_messages",
-    description: "Search the user's email messages using keyword query language (KQL).",
+    description:
+      "Search the user's email messages using keyword query language (KQL).",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "The search query (e.g., 'from:boss', 'project status')" }
+        query: {
+          type: "string",
+          description: "The search query (e.g., 'from:boss', 'project status')",
+        },
       },
-      required: ["query"]
-    }
+      required: ["query"],
+    },
   },
 
   // --- CALENDAR ---
@@ -70,22 +102,32 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        startDateTime: { type: "string", description: "ISO 8601 start time (e.g., '2026-05-27T00:00:00Z')" },
-        endDateTime: { type: "string", description: "ISO 8601 end time (e.g., '2026-05-30T23:59:59Z')" }
+        startDateTime: {
+          type: "string",
+          description: "ISO 8601 start time (e.g., '2026-05-27T00:00:00Z')",
+        },
+        endDateTime: {
+          type: "string",
+          description: "ISO 8601 end time (e.g., '2026-05-30T23:59:59Z')",
+        },
       },
-      required: ["startDateTime", "endDateTime"]
-    }
+      required: ["startDateTime", "endDateTime"],
+    },
   },
   {
     name: "calendar_get_event",
-    description: "Get detailed information about a specific calendar event by its ID.",
+    description:
+      "Get detailed information about a specific calendar event by its ID.",
     inputSchema: {
       type: "object",
       properties: {
-        eventId: { type: "string", description: "The unique ID of the calendar event" }
+        eventId: {
+          type: "string",
+          description: "The unique ID of the calendar event",
+        },
       },
-      required: ["eventId"]
-    }
+      required: ["eventId"],
+    },
   },
   {
     name: "calendar_create_event",
@@ -94,14 +136,28 @@ export const MS_GRAPH_TOOLS: Tool[] = [
       type: "object",
       properties: {
         subject: { type: "string", description: "Subject of the meeting" },
-        startDateTime: { type: "string", description: "ISO 8601 start date-time (e.g., '2026-05-28T14:00:00Z')" },
-        endDateTime: { type: "string", description: "ISO 8601 end date-time (e.g., '2026-05-28T15:00:00Z')" },
-        body: { type: "string", description: "Description or body text for the calendar event" },
-        attendees: { type: "array", items: { type: "string" }, description: "Attendee email addresses" },
-        location: { type: "string", description: "Location of the meeting" }
+        startDateTime: {
+          type: "string",
+          description:
+            "ISO 8601 start date-time (e.g., '2026-05-28T14:00:00Z')",
+        },
+        endDateTime: {
+          type: "string",
+          description: "ISO 8601 end date-time (e.g., '2026-05-28T15:00:00Z')",
+        },
+        body: {
+          type: "string",
+          description: "Description or body text for the calendar event",
+        },
+        attendees: {
+          type: "array",
+          items: { type: "string" },
+          description: "Attendee email addresses",
+        },
+        location: { type: "string", description: "Location of the meeting" },
       },
-      required: ["subject", "startDateTime", "endDateTime"]
-    }
+      required: ["subject", "startDateTime", "endDateTime"],
+    },
   },
   {
     name: "calendar_update_event",
@@ -109,15 +165,24 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        eventId: { type: "string", description: "The unique ID of the event to update" },
+        eventId: {
+          type: "string",
+          description: "The unique ID of the event to update",
+        },
         subject: { type: "string", description: "New subject of the meeting" },
-        startDateTime: { type: "string", description: "New ISO 8601 start date-time" },
-        endDateTime: { type: "string", description: "New ISO 8601 end date-time" },
+        startDateTime: {
+          type: "string",
+          description: "New ISO 8601 start date-time",
+        },
+        endDateTime: {
+          type: "string",
+          description: "New ISO 8601 end date-time",
+        },
         body: { type: "string", description: "New description body text" },
-        location: { type: "string", description: "New location" }
+        location: { type: "string", description: "New location" },
       },
-      required: ["eventId"]
-    }
+      required: ["eventId"],
+    },
   },
   {
     name: "calendar_delete_event",
@@ -125,10 +190,13 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        eventId: { type: "string", description: "The unique ID of the event to delete" }
+        eventId: {
+          type: "string",
+          description: "The unique ID of the event to delete",
+        },
       },
-      required: ["eventId"]
-    }
+      required: ["eventId"],
+    },
   },
 
   // --- ONEDRIVE & SHAREPOINT ---
@@ -137,19 +205,23 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     description: "List all items in the root folder of the user's OneDrive.",
     inputSchema: {
       type: "object",
-      properties: {}
-    }
+      properties: {},
+    },
   },
   {
     name: "onedrive_list_folder",
-    description: "List all items inside a specific OneDrive folder by its folder ID.",
+    description:
+      "List all items inside a specific OneDrive folder by its folder ID.",
     inputSchema: {
       type: "object",
       properties: {
-        folderId: { type: "string", description: "The unique ID of the OneDrive folder" }
+        folderId: {
+          type: "string",
+          description: "The unique ID of the OneDrive folder",
+        },
       },
-      required: ["folderId"]
-    }
+      required: ["folderId"],
+    },
   },
   {
     name: "onedrive_search_files",
@@ -157,21 +229,25 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Search query text (e.g. 'report')" }
+        query: {
+          type: "string",
+          description: "Search query text (e.g. 'report')",
+        },
       },
-      required: ["query"]
-    }
+      required: ["query"],
+    },
   },
   {
     name: "onedrive_download_file",
-    description: "Retrieve download content link or file details for a file ID.",
+    description:
+      "Retrieve download content link or file details for a file ID.",
     inputSchema: {
       type: "object",
       properties: {
-        fileId: { type: "string", description: "The unique ID of the file" }
+        fileId: { type: "string", description: "The unique ID of the file" },
       },
-      required: ["fileId"]
-    }
+      required: ["fileId"],
+    },
   },
   {
     name: "onedrive_upload_file",
@@ -179,12 +255,18 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        filename: { type: "string", description: "Name of the file (e.g. 'document.txt')" },
+        filename: {
+          type: "string",
+          description: "Name of the file (e.g. 'document.txt')",
+        },
         content: { type: "string", description: "Text content of the file" },
-        parentFolderId: { type: "string", description: "Optional folder ID to upload into (defaults to root)" }
+        parentFolderId: {
+          type: "string",
+          description: "Optional folder ID to upload into (defaults to root)",
+        },
       },
-      required: ["filename", "content"]
-    }
+      required: ["filename", "content"],
+    },
   },
   {
     name: "onedrive_create_folder",
@@ -192,11 +274,17 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        folderName: { type: "string", description: "Name of the folder to create" },
-        parentFolderId: { type: "string", description: "Optional parent folder ID" }
+        folderName: {
+          type: "string",
+          description: "Name of the folder to create",
+        },
+        parentFolderId: {
+          type: "string",
+          description: "Optional parent folder ID",
+        },
       },
-      required: ["folderName"]
-    }
+      required: ["folderName"],
+    },
   },
   {
     name: "sharepoint_list_sites",
@@ -204,20 +292,27 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        searchQuery: { type: "string", description: "Search query to filter sites" }
-      }
-    }
+        searchQuery: {
+          type: "string",
+          description: "Search query to filter sites",
+        },
+      },
+    },
   },
   {
     name: "sharepoint_get_site_details",
-    description: "Retrieve document libraries and lists for a specific SharePoint Site ID.",
+    description:
+      "Retrieve document libraries and lists for a specific SharePoint Site ID.",
     inputSchema: {
       type: "object",
       properties: {
-        siteId: { type: "string", description: "The unique ID of the SharePoint site" }
+        siteId: {
+          type: "string",
+          description: "The unique ID of the SharePoint site",
+        },
       },
-      required: ["siteId"]
-    }
+      required: ["siteId"],
+    },
   },
 
   // --- TEAMS ---
@@ -227,9 +322,12 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        top: { type: "number", description: "Max threads to return (default: 10)" }
-      }
-    }
+        top: {
+          type: "number",
+          description: "Max threads to return (default: 10)",
+        },
+      },
+    },
   },
   {
     name: "teams_send_chat_message",
@@ -237,20 +335,16 @@ export const MS_GRAPH_TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        chatId: { type: "string", description: "The unique ID of the Teams chat thread" },
-        content: { type: "string", description: "The message body content (plain text or HTML)" }
+        chatId: {
+          type: "string",
+          description: "The unique ID of the Teams chat thread",
+        },
+        content: {
+          type: "string",
+          description: "The message body content (plain text or HTML)",
+        },
       },
-      required: ["chatId", "content"]
-    }
+      required: ["chatId", "content"],
+    },
   },
-
-  // --- POWER BI ---
-  {
-    name: "powerbi_list_reports",
-    description: "Retrieve a list of Power BI reports that the user has access to.",
-    inputSchema: {
-      type: "object",
-      properties: {}
-    }
-  }
 ];
