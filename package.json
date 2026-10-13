@@ -1,7 +1,7 @@
 {
   "name": "microsoft-graph-mcp",
-  "version": "1.0.0",
-  "description": "21-tool Model Context Protocol server for Microsoft Graph integration",
+  "version": "1.0.1",
+  "description": "20-tool Model Context Protocol server for Microsoft Graph integration",
   "main": "build/index.js",
   "scripts": {
     "build": "tsc",
@@ -12,7 +12,7 @@
     "@azure/msal-node": "^2.6.0",
     "@azure/msal-node-extensions": "^5.2.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
-    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "dotenv": "^16.4.5",
     "isomorphic-fetch": "^3.0.0"
   },
