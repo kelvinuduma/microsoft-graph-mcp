@@ -13,7 +13,7 @@
     "@azure/msal-node-extensions": "^5.2.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "dotenv": "^16.4.5",
+    "dotenv": "^18.0.7",
     "isomorphic-fetch": "^3.0.0"
   },
   "devDependencies": {
