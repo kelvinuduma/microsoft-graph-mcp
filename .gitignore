@@ -17,3 +17,12 @@ yarn-error.log*
 # System files
 .DS_Store
 Thumbs.db
+
+# Local test & scratch scripts
+*.mjs
+scratch/
+
+# Local MSAL cache files
+*.bin
+cache.json
+.msal_token_cache*

@@ -57,14 +57,33 @@ export class MSGraphAuth {
 
     const authority = `https://login.microsoftonline.com/${tenantId}`;
 
-    // DPAPI-backed persistence (Windows): survives restarts, encrypted at rest.
-    const persistence = await PersistenceCreator.createPersistence({
-      cachePath: CACHE_PATH,
-      dataProtectionScope: DataProtectionScope.CurrentUser,
-      serviceName: "microsoft-graph-mcp",
-      accountName: "msal-token-cache",
-      usePlaintextFileOnLinux: false,
-    });
+    // Secure token persistence: DPAPI (Windows), Keychain (macOS), LibSecret (Linux).
+    // Falls back gracefully on Linux systems without a desktop keyring (e.g. WSL/containers).
+    let persistence;
+    try {
+      persistence = await PersistenceCreator.createPersistence({
+        cachePath: CACHE_PATH,
+        dataProtectionScope: DataProtectionScope.CurrentUser,
+        serviceName: "microsoft-graph-mcp",
+        accountName: "msal-token-cache",
+        usePlaintextFileOnLinux: process.env.MSAL_USE_PLAINTEXT_CACHE === "true",
+      });
+    } catch (err) {
+      if (process.platform === "linux") {
+        console.warn(
+          "[Auth Warning] System keyring not accessible. Falling back to plaintext cache on Linux. (Set MSAL_USE_PLAINTEXT_CACHE=true to suppress this check)."
+        );
+        persistence = await PersistenceCreator.createPersistence({
+          cachePath: CACHE_PATH,
+          dataProtectionScope: DataProtectionScope.CurrentUser,
+          serviceName: "microsoft-graph-mcp",
+          accountName: "msal-token-cache",
+          usePlaintextFileOnLinux: true,
+        });
+      } else {
+        throw err;
+      }
+    }
 
     const config: msal.Configuration = {
       auth: { clientId, authority },

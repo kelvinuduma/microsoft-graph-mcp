@@ -8,9 +8,11 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import { MSGraphAuth } from "./auth.js";
 import { MS_GRAPH_TOOLS } from "./tools.js";
 import * as dotenv from "dotenv";
+import * as path from "path";
 import "isomorphic-fetch";
 
-// Load environment variables
+// Load environment variables from repo .env and current working directory
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config();
 
 class MSGraphMCPServer {
