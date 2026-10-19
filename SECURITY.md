@@ -45,6 +45,7 @@ Include the attack path, reproduction steps, impact, and any suggested fix. Repo
 **Outbound actions (human in the loop)**
 
 - Tools that notify other people are hidden unless outbound is enabled: sending mail, posting to Teams, creating meetings with attendees, and changing or cancelling meetings that have attendees.
+- OneDrive writes (`onedrive_upload_file`, `outlook_file_attachment_to_onedrive`, `onedrive_create_folder`) into a folder shared with others are outbound too: the folder's permissions are checked first.
 - Drafts (`outlook_create_draft`, `outlook_create_reply_draft`) are always available, so a person reviews and sends.
 
 **Local filesystem**
@@ -77,5 +78,5 @@ Include the attack path, reproduction steps, impact, and any suggested fix. Repo
 
 - A user who enables outbound tools for an unattended agent accepts that injected content could cause a send. Keep outbound off for autonomous runs.
 - Files inside the allowed folders can still be attached to drafts. Narrow `GRAPH_MCP_READ_DIRS` for sensitive environments.
-- OneDrive writes (`onedrive_upload_file`, `outlook_file_attachment_to_onedrive`) are not outbound-gated. If the target folder is already shared externally, content written there is visible to those people. Keep agents away from shared folders, or review uploads.
+- OneDrive writes into a folder shared with other people (direct, inherited, or by link) are treated as outbound and refused unless outbound is enabled. Writes into an unshared folder that someone shares *later* are not covered. Review sharing on folders agents write to.
 - Data returned to the model is processed by the model provider under your agreement with them.

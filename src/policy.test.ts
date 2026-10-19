@@ -8,6 +8,7 @@ import {
   PolicyError,
   assertGraphUrl,
   clampTop,
+  isSharedWithOthers,
   odataString,
   resolveReadPath,
   resolveWritePath,
@@ -239,6 +240,31 @@ test("write: refuses agent and tool config files that would run code", () => {
       name,
     );
   }
+});
+
+test("isSharedWithOthers: shapes observed on a real personal OneDrive", () => {
+  const owner = {
+    roles: ["owner"],
+    link: { webUrl: "https://x" },
+    grantedToV2: { user: { id: "a" } },
+  };
+  const anonEdit = {
+    roles: ["write"],
+    link: { type: "edit", scope: "anonymous" },
+    inheritedFrom: { id: "p" },
+  };
+  const orgView = {
+    roles: ["read"],
+    link: { type: "view", scope: "organization" },
+  };
+  const direct = { roles: ["read"], grantedToV2: { user: { id: "b" } } };
+  assert.equal(isSharedWithOthers([owner]), false);
+  assert.equal(isSharedWithOthers([{ roles: ["owner"], link: {} }]), false);
+  assert.equal(isSharedWithOthers([anonEdit, owner]), true);
+  assert.equal(isSharedWithOthers([owner, orgView]), true);
+  assert.equal(isSharedWithOthers([owner, direct]), true);
+  assert.equal(isSharedWithOthers([]), false);
+  assert.equal(isSharedWithOthers(undefined), false);
 });
 
 test("clampTop and odataString", () => {

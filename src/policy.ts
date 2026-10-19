@@ -372,6 +372,21 @@ function parseGraphUrl(value: unknown): URL {
   return u;
 }
 
+/**
+ * True if a drive item's permission list grants access to anyone but the
+ * owner: a sharing link, or any non-owner role (direct or inherited). The
+ * owner's own entry carries a `link` object without type or scope on personal
+ * accounts, so only a link with a type or scope counts.
+ */
+export function isSharedWithOthers(permissions: unknown): boolean {
+  if (!Array.isArray(permissions)) return false;
+  return permissions.some(
+    (p: any) =>
+      Boolean(p?.link?.type || p?.link?.scope) ||
+      !(Array.isArray(p?.roles) && p.roles.includes("owner")),
+  );
+}
+
 /** Escapes a value for use inside a single-quoted OData string literal. */
 export function odataString(value: unknown): string {
   return String(value ?? "").replace(/'/g, "''");

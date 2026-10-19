@@ -13,6 +13,7 @@ Security hardening and refactor. **Breaking:** outbound tools are now opt-in.
 - Third-party content (mail, chats, invites) is returned with a prompt-injection notice.
 - Sign-in helpers use `execFile` with argument arrays instead of shell strings. The device code reaches the clipboard via `clip.exe` stdin.
 - Sign-out and cache resets also delete the Keychain / libsecret entry on macOS and Linux.
+- OneDrive writes into a folder shared with other people count as outbound (permissions checked before upload, filing or folder creation).
 - Removed hard-coded deployment paths and organisation-specific values from the code; deny rules are now configuration (`GRAPH_MCP_DENY_PATHS`).
 
 ### Reliability

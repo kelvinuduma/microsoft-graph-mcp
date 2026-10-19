@@ -8,6 +8,7 @@ import {
   PolicyError,
   assertGraphUrl,
   clampTop,
+  isSharedWithOthers,
   odataString,
   resolveReadPath,
   resolveWritePath,
@@ -196,6 +197,32 @@ export class GraphHandlers {
       .select("attendees")
       .get();
     return Array.isArray(ev.attendees) && ev.attendees.length > 0;
+  }
+
+  /**
+   * Resolves the OneDrive folder a write tool targets. Writing into a folder
+   * that is shared with other people (directly, by inheritance, or through a
+   * sharing link) publishes the content to them, so it counts as outbound.
+   * The drive root is never shared and needs no lookup.
+   */
+  private async writableDriveFolder(parentFolderId: unknown): Promise<string> {
+    if (
+      parentFolderId === undefined ||
+      parentFolderId === null ||
+      parentFolderId === ""
+    ) {
+      return "/me/drive/root";
+    }
+    const folder = `/me/drive/items/${seg(parentFolderId, "parentFolderId")}`;
+    if (!this.cfg.enableOutbound) {
+      const perms = await this.client.api(`${folder}/permissions`).get();
+      if (isSharedWithOthers(perms.value)) {
+        this.requireOutbound(
+          "Writing into a OneDrive folder that is shared with other people",
+        );
+      }
+    }
+    return folder;
   }
 
   private tz(args: Args): string {
@@ -398,9 +425,7 @@ export class GraphHandlers {
         if (!att.contentBytes)
           throw new PolicyError("Only file attachments can be filed.");
         this.assertSize(att.size, `Attachment '${att.name}'`);
-        const folder = args.parentFolderId
-          ? `/me/drive/items/${seg(args.parentFolderId, "parentFolderId")}`
-          : "/me/drive/root";
+        const folder = await this.writableDriveFolder(args.parentFolderId);
         const item = await this.uploadToDrive(
           folder,
           String(args.filename || att.name),
@@ -576,9 +601,7 @@ export class GraphHandlers {
         const data = Buffer.from(String(args.content ?? ""), "utf8");
         if (data.length > SIMPLE_UPLOAD_LIMIT)
           throw new PolicyError("Text uploads are limited to 4 MB.");
-        const folder = args.parentFolderId
-          ? `/me/drive/items/${seg(args.parentFolderId, "parentFolderId")}`
-          : "/me/drive/root";
+        const folder = await this.writableDriveFolder(args.parentFolderId);
         const item = await this.uploadToDrive(
           folder,
           String(args.filename),
@@ -594,9 +617,7 @@ export class GraphHandlers {
       }
 
       case "onedrive_create_folder": {
-        const parent = args.parentFolderId
-          ? `/me/drive/items/${seg(args.parentFolderId, "parentFolderId")}/children`
-          : "/me/drive/root/children";
+        const parent = `${await this.writableDriveFolder(args.parentFolderId)}/children`;
         return this.client.api(parent).post({
           name: String(args.folderName),
           folder: {},
