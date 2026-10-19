@@ -129,7 +129,8 @@ function assertNotSensitive(
   cfg: Config,
   verb: string,
 ): void {
-  const rel = `/${relToRoot}`;
+  // Case-insensitive on every platform: stricter is safer, and the list is lowercase.
+  const rel = `/${relToRoot}`.toLowerCase();
 
   for (const seg of SENSITIVE_SEGMENTS) {
     if (rel.includes(`/${seg}/`) || rel.endsWith(`/${seg}`)) {
