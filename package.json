@@ -12,7 +12,7 @@
     "start": "node build/index.js",
     "dev": "tsc -w",
     "auth": "node build/auth-cli.js",
-    "test": "npm run build && node --test \"build/**/*.test.js\""
+    "test": "npm run build && node --test build/policy.test.js build/tools.test.js"
   },
   "dependencies": {
     "@azure/msal-node": "^7.1.0",
