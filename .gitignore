@@ -4,10 +4,10 @@ node_modules/
 # Build outputs
 build/
 
-# Local configuration / secrets
+# Local configuration / secrets (every .env variant except the example)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Logs
 npm-debug.log*
@@ -25,4 +25,5 @@ scratch/
 # Local MSAL cache files
 *.bin
 cache.json
+msal-cache.json
 .msal_token_cache*

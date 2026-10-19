@@ -1,24 +1,28 @@
 {
   "name": "microsoft-graph-mcp",
-  "version": "1.0.1",
-  "description": "20-tool Model Context Protocol server for Microsoft Graph integration",
+  "version": "2.0.0",
+  "description": "Hardened Model Context Protocol server for Microsoft Graph (Outlook, Calendar, OneDrive, SharePoint, Teams)",
+  "license": "MIT",
   "main": "build/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
-    "dev": "tsc -w"
+    "dev": "tsc -w",
+    "auth": "node build/auth-cli.js",
+    "test": "npm run build && node --test \"build/**/*.test.js\""
   },
   "dependencies": {
-    "@azure/msal-node": "^2.6.0",
-    "@azure/msal-node-extensions": "^5.2.2",
+    "@azure/msal-node": "^7.1.0",
+    "@azure/msal-node-extensions": "^5.5.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "dotenv": "^16.4.5",
-    "isomorphic-fetch": "^3.0.0"
+    "dotenv": "^18.0.8"
   },
   "devDependencies": {
-    "@types/isomorphic-fetch": "^0.0.39",
-    "@types/node": "^20.11.24",
-    "typescript": "^5.3.3"
+    "@types/node": "^20.19.43",
+    "typescript": "^7.0.2"
   }
 }
