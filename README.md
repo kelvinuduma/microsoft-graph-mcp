@@ -1,212 +1,163 @@
 # Microsoft Graph MCP Server
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg?style=flat-square)](SECURITY.md)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![MCP](https://img.shields.io/badge/MCP-1.x-orange?style=flat-square)](https://modelcontextprotocol.io)
+A hardened [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI agents (Claude Desktop, Claude Code, Codex, Cursor and others) delegated access to Microsoft 365: Outlook mail, Calendar, OneDrive, SharePoint and Teams.
 
-A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server exposing **20 tools** that allow AI coding assistants and agent hosts to interact securely with Microsoft 365 services via the Microsoft Graph API — including **Outlook Mail, Calendar, OneDrive, Teams, and SharePoint**.
+It runs locally over stdio, signs in with the device-code flow, keeps tokens encrypted at rest, and assumes the model can be manipulated by the content it reads. The defaults are **drafts, not sends**, **safe folders, not the whole disk**, and **Microsoft endpoints only**.
 
-Designed for single-user desktop and developer environments using the MSAL **device-code (delegated) flow** with **persistent, encrypted token caching** (Windows DPAPI, macOS Keychain, Linux LibSecret).
+## Highlights
 
----
+- **30 tools** across mail, calendar, OneDrive, SharePoint, Teams and diagnostics (28 shown by default, 21 for personal accounts).
+- **Outbound actions off by default.** Sending mail, posting to Teams, and creating, changing or cancelling meetings with attendees need `GRAPH_MCP_ENABLE_OUTBOUND=true`. Without it the model creates drafts you review and send, and the `Mail.Send` scope is not requested.
+- **Local file guardrails.** Downloads go to `~/Downloads/graph-mcp` by default, and attachments come only from allowed folders. Alternate data streams, device names and trailing-dot tricks are rejected. Credential files, key stores, shell profiles, startup folders, agent configs and this server's own token cache are always refused. No silent overwrites. Executables are blocked unless allowed.
+- **Request hardening.** Every ID from the model is URL-encoded. Pagination links must be a genuine next page of the same resource on `graph.microsoft.com`, so the token can't be sent elsewhere and a "next page" can't become a different query. Transfers have size limits and timeouts.
+- **Prompt-injection notice** on every tool that returns third-party text (mail, chats, invites).
+- **Non-blocking sign-in.** The MCP handshake never waits for a login. If a token is needed, the tool returns the device code to the user and the next call succeeds.
+- **Actionable errors.** For example, a removed Exchange licence is reported as such, not as a bare `404`.
+- **Multiple profiles.** Run a work and a personal account side by side, each with its own encrypted token cache and tool prefix.
 
-## Architecture
+## Tools
 
-```mermaid
-flowchart LR
-    Host["MCP Host<br/>(Claude Desktop / Cursor / Codex)"]
-    Server["microsoft-graph-mcp<br/>(Node.js Process)"]
-    Cache[("Encrypted Token Cache<br/>(DPAPI / LibSecret)")]
-    Graph["Microsoft Graph API<br/>(graph.microsoft.com)"]
-    Entra["Microsoft Entra ID<br/>(login.microsoftonline.com)"]
+| Area        | Tools                                                                                                                                                                                                                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Diagnostics | `graph_health_check`                                                                                                                                                                                                                                                              |
+| Mail        | `outlook_list_messages`, `outlook_get_message`, `outlook_search_messages`, `outlook_create_draft`, `outlook_create_reply_draft`, `outlook_list_attachments`, `outlook_download_attachment`, `outlook_add_attachment`, `outlook_file_attachment_to_onedrive`, `outlook_send_mail`¹ |
+| Calendar    | `calendar_list_events`, `calendar_get_event`, `calendar_create_event`², `calendar_update_event`², `calendar_delete_event`²                                                                                                                                                        |
+| OneDrive    | `onedrive_list_root`, `onedrive_list_folder`, `onedrive_search_files`, `onedrive_download_file`, `onedrive_upload_file`, `onedrive_create_folder`                                                                                                                                 |
+| SharePoint³ | `sharepoint_list_sites`, `sharepoint_get_site_details`, `sharepoint_list_drive_items`, `sharepoint_download_file`, `sharepoint_search_files`                                                                                                                                      |
+| Teams³      | `teams_list_chats`, `teams_list_chat_messages`, `teams_send_chat_message`¹                                                                                                                                                                                                        |
 
-    Host <-->|"stdio (JSON-RPC)"| Server
-    Server <-->|"Local I/O"| Cache
-    Server -->|"OAuth 2.0 Device Code"| Entra
-    Server <-->|"HTTPS (Delegated Bearer)"| Graph
-```
+¹ Only listed when outbound tools are enabled.
+² Refused for meetings with attendees unless outbound tools are enabled, because Graph notifies the attendees.
+³ Work or school accounts only.
 
-- **Transport**: Standard input/output (`stdio`) JSON-RPC. No network ports or sockets are opened locally.
-- **Identity**: Delegated user context only. No application credentials, client secrets, or directory-wide tenant admin rights.
-- **Cache**: Persistent encrypted cache under `~/.microsoft-graph-mcp/` ensures silent re-authentication across restarts after initial consent.
+## Requirements
 
----
+- Node.js 20 or later
+- An Entra ID app registration (public client) with **Allow public client flows** turned on, and the delegated permissions below
 
-## Supported MCP Hosts
+| Permission                     | Used by                        | Requested when                             |
+| ------------------------------ | ------------------------------ | ------------------------------------------ |
+| `User.Read`                    | health check, profile          | always                                     |
+| `Mail.ReadWrite`               | mail read, drafts, attachments | always                                     |
+| `Calendars.ReadWrite`          | calendar                       | always                                     |
+| `Files.ReadWrite`              | OneDrive                       | always                                     |
+| `Sites.Read.All`               | SharePoint                     | work/school                                |
+| `Chat.Read` / `Chat.ReadWrite` | Teams read / send              | work/school (ReadWrite only with outbound) |
+| `Mail.Send`                    | `outlook_send_mail`            | outbound enabled                           |
 
-Tested and compatible with stdio-based MCP clients:
-- **Claude Desktop** (macOS, Windows)
-- **Cursor IDE**
-- **OpenAI Codex / ChatGPT Desktop**
-- **OpenClaw CLI & Agent Frameworks**
-- **MCP Inspector** (`@modelcontextprotocol/inspector`)
-
----
-
-## Tool-by-Tool Permission & Scope Matrix
-
-The server defines 20 tools. Each tool relies on Microsoft Graph REST endpoints that require specific delegated scopes:
-
-| Category | Tool Name | Type | Microsoft Graph Endpoint | Delegated Scope | Admin Consent? |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Outlook** | `outlook_list_messages` | Read | `GET /me/mailFolders/inbox/messages` | `Mail.ReadWrite` | No |
-| **Outlook** | `outlook_get_message` | Read | `GET /me/messages/{id}` | `Mail.ReadWrite` | No |
-| **Outlook** | `outlook_send_mail` | Write | `POST /me/sendMail` | `Mail.Send` | No |
-| **Outlook** | `outlook_create_draft` | Write | `POST /me/messages` | `Mail.ReadWrite` | No |
-| **Outlook** | `outlook_search_messages` | Read | `GET /me/messages?$search={q}` | `Mail.ReadWrite` | No |
-| **Calendar** | `calendar_list_events` | Read | `GET /me/calendarView` | `Calendars.ReadWrite` | No |
-| **Calendar** | `calendar_get_event` | Read | `GET /me/events/{id}` | `Calendars.ReadWrite` | No |
-| **Calendar** | `calendar_create_event` | Write | `POST /me/events` | `Calendars.ReadWrite` | No |
-| **Calendar** | `calendar_update_event` | Write | `PATCH /me/events/{id}` | `Calendars.ReadWrite` | No |
-| **Calendar** | `calendar_delete_event` | Write | `DELETE /me/events/{id}` | `Calendars.ReadWrite` | No |
-| **OneDrive** | `onedrive_list_root` | Read | `GET /me/drive/root/children` | `Files.ReadWrite` | No |
-| **OneDrive** | `onedrive_list_folder` | Read | `GET /me/drive/items/{id}/children` | `Files.ReadWrite` | No |
-| **OneDrive** | `onedrive_search_files` | Read | `GET /me/drive/root/search(q='{q}')` | `Files.ReadWrite` | No |
-| **OneDrive** | `onedrive_download_file` | Read | `GET /me/drive/items/{id}` | `Files.ReadWrite` | No |
-| **OneDrive** | `onedrive_upload_file` | Write | `PUT /me/drive/items/{id}:/{name}:/content` | `Files.ReadWrite` | No |
-| **OneDrive** | `onedrive_create_folder` | Write | `POST /me/drive/items/{id}/children` | `Files.ReadWrite` | No |
-| **SharePoint** | `sharepoint_list_sites` | Read | `GET /sites?$search={q}` | `Sites.Read.All` | **Yes** |
-| **SharePoint** | `sharepoint_get_site_details` | Read | `GET /sites/{id}/lists` | `Sites.Read.All` | **Yes** |
-| **Teams** | `teams_list_chats` | Read | `GET /me/chats` | `Chat.ReadWrite` | **Yes** |
-| **Teams** | `teams_send_chat_message` | Write | `POST /me/chats/{id}/messages` | `Chat.ReadWrite` | **Yes** |
-
----
-
-## Threat Model & Security Posture
-
-### 1. Scope Rationale & Minimisation
-Delegated scopes such as `Mail.ReadWrite`, `Files.ReadWrite`, and `Chat.ReadWrite` are necessary to support draft creation, event updates, file management, and message posting. 
-
-> [!TIP]
-> **Restricting Permissions**: If your deployment only requires read access (e.g., retrieving emails and viewing calendars), you can restrict your Entra ID app registration to `Mail.Read`, `Calendars.Read`, and `Files.Read`. Tools requiring write operations will return clear authorization errors from Microsoft Graph without impacting read tools.
-
-### 2. Local Credential Boundary
-- **No Client Secrets**: Authentication relies purely on the public client device-code flow (`Allow public client flows = Yes`). There are no client secrets or certificate private keys stored on disk or passed to the server.
-- **At-Rest Token Protection**: The MSAL token cache is encrypted using OS-native security primitives:
-  - **Windows**: DPAPI (`DataProtectionScope.CurrentUser`), binding decryption to your Windows login session.
-  - **macOS**: Apple Keychain Services.
-  - **Linux**: Secret Service API (`libsecret`). In headless Linux or container environments where no keyring daemon exists, plaintext storage can be explicitly enabled with `MSAL_USE_PLAINTEXT_CACHE=true` (which emits an audit warning).
-
-### 3. Agent Execution & LLM Guardrails
-- **Human-in-the-Loop**: Actions that send emails (`outlook_send_mail`), post chat messages (`teams_send_chat_message`), or delete events (`calendar_delete_event`) execute with the full identity of the logged-in user. MCP host applications should be configured with user confirmation prompts before executing write/send tools.
-- **Prompt Injection Defense**: When agents read emails or document contents, treat external text as untrusted data to prevent indirect prompt injection from influencing subsequent write actions.
-
----
-
-## Setup Guide
-
-### 1. Entra ID App Registration
-
-1. Navigate to [Azure Portal](https://portal.azure.com/) → **Microsoft Entra ID** → **App registrations** → **New registration**.
-2. **Name**: `Microsoft Graph MCP Server`.
-3. **Supported account types**: Select *Accounts in this organizational directory only* (single-tenant recommended).
-4. **Authentication**: Go to **Advanced settings** → toggle **Allow public client flows** to **Yes**.
-5. **API permissions**: Add the following **delegated** permissions:
-   - `User.Read`
-   - `Mail.ReadWrite`
-   - `Mail.Send`
-   - `Calendars.ReadWrite`
-   - `Files.ReadWrite`
-   - `Sites.Read.All` *(Requires admin consent)*
-   - `Chat.ReadWrite` *(Requires admin consent)*
-6. Click **Grant admin consent for [Organization]**.
-7. Note your **Application (client) ID** and **Directory (tenant) ID**.
-
-### 2. Configuration & Build
-
-Clone and install dependencies:
+## Install
 
 ```bash
 git clone https://github.com/kelvinuduma/microsoft-graph-mcp.git
 cd microsoft-graph-mcp
-npm install
-```
-
-Create `.env` from `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Set your client and tenant IDs in `.env`:
-
-```env
-MICROSOFT_CLIENT_ID=00000000-0000-0000-0000-000000000000
-MICROSOFT_TENANT_ID=00000000-0000-0000-0000-000000000000
-```
-
-Build the TypeScript project:
-
-```bash
+npm ci
 npm run build
+npm test
 ```
 
-### 3. Initial Sign-In (Terminal)
+## Sign in
 
-Before launching from an MCP host, run the server once in your terminal to complete interactive device-code authentication:
+Sign in once per profile from a terminal. The token is cached encrypted (DPAPI on Windows, Keychain on macOS, libsecret on Linux):
 
 ```bash
-npm start
+# macOS / Linux
+MICROSOFT_CLIENT_ID=<app-id> MICROSOFT_TENANT_ID=<tenant-id> npm run auth
 ```
 
-The device-code sign-in prompt prints to `stderr`:
-
-```text
-=========================================
-MICROSOFT GRAPH AUTHENTICATION REQUIRED
-To sign in, use a web browser to open https://microsoft.com/devicelogin and enter the code XXXXXXXXX.
-=========================================
+```powershell
+# Windows: reads .env / .env.<profile>, copies the code, opens the browser
+.\scripts\login.ps1                    # profile "corporate"
+.\scripts\login.ps1 -Profile personal
+.\scripts\login.ps1 -SignOut           # forget a profile's sign-in
 ```
 
-1. Open `https://microsoft.com/devicelogin` in your browser.
-2. Enter the one-time code and complete organizational sign-in.
-3. Once authenticated, the server caches the token. Stop the process (`Ctrl+C`). Subsequent executions will authenticate silently via the encrypted token cache.
+The command ends with a health check (account, mailbox status, licences). You can also sign in later from inside the agent: the first tool call returns the device code.
 
----
+## Configure your MCP client
 
-## Client Configurations
-
-### Claude Desktop
-Add to your `claude_desktop_config.json` (`%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Claude Desktop (`claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "microsoft-graph": {
       "command": "node",
-      "args": ["/path/to/microsoft-graph-mcp/build/index.js"],
+      "args": ["/absolute/path/to/microsoft-graph-mcp/build/index.js"],
       "env": {
-        "MICROSOFT_CLIENT_ID": "your-client-id",
-        "MICROSOFT_TENANT_ID": "your-tenant-id"
+        "MICROSOFT_CLIENT_ID": "<app-id>",
+        "MICROSOFT_TENANT_ID": "<tenant-id>",
+        "GRAPH_MCP_TIMEZONE": "W. Central Africa Standard Time"
+      }
+    },
+    "microsoft-graph-personal": {
+      "command": "node",
+      "args": ["/absolute/path/to/microsoft-graph-mcp/build/index.js"],
+      "env": {
+        "MICROSOFT_CLIENT_ID": "<app-id>",
+        "MICROSOFT_TENANT_ID": "consumers",
+        "MICROSOFT_PROFILE": "personal",
+        "TOOL_PREFIX": "personal_"
       }
     }
   }
 }
 ```
 
-### Cursor IDE
-In Cursor settings under **Features** → **MCP Servers**, add a new stdio server:
-- **Name**: `microsoft-graph`
-- **Command**: `node /path/to/microsoft-graph-mcp/build/index.js`
+Codex (`~/.codex/config.toml`):
 
----
+```toml
+[mcp_servers.microsoft-graph]
+command = "node"
+args = ["/absolute/path/to/microsoft-graph-mcp/build/index.js"]
 
-## Verification & Testing
-
-Verify tool schemas and test API calls using the MCP Inspector:
-
-```bash
-npx @modelcontextprotocol/inspector node build/index.js
+[mcp_servers.microsoft-graph.env]
+MICROSOFT_CLIENT_ID = "<app-id>"
+MICROSOFT_TENANT_ID = "<tenant-id>"
 ```
 
-This launches a web-based testing interface on `localhost:5173` where you can inspect all 20 tool definitions and execute test requests (e.g. `outlook_list_messages` or `calendar_list_events`).
+## Settings
 
----
+Settings come from the client's `env` block first, then `.env.<profile>`, then `.env` (both next to `package.json`, both git-ignored).
 
-## Security Policy
+| Variable                            | Default     | Purpose                                                          |
+| ----------------------------------- | ----------- | ---------------------------------------------------------------- |
+| `MICROSOFT_CLIENT_ID`               | (required)  | App registration (client) ID                                     |
+| `MICROSOFT_TENANT_ID`               | `common`    | Tenant ID, `organizations`, or `consumers` for personal accounts |
+| `MICROSOFT_PROFILE`                 | `corporate` | Profile name; selects the token cache and `.env.<profile>`       |
+| `TOOL_PREFIX`                       | (none)      | Prefix for tool names when running several profiles              |
+| `GRAPH_MCP_ENABLE_OUTBOUND`         | `false`     | Enable tools that notify other people                            |
+| `GRAPH_MCP_WRITE_DIRS`              | home + temp | Allowed download folders (`;` on Windows, `:` elsewhere)         |
+| `GRAPH_MCP_READ_DIRS`               | home        | Allowed attachment source folders                                |
+| `GRAPH_MCP_DENY_PATHS`              | (none)      | Extra path fragments to refuse for reads and writes              |
+| `GRAPH_MCP_ALLOW_EXECUTABLE_WRITES` | `false`     | Allow saving `.exe`, `.ps1`, `.js` and similar files             |
+| `GRAPH_MCP_MAX_TRANSFER_MB`         | `150`       | Largest download, attachment or filing                           |
+| `GRAPH_MCP_TIMEZONE`                | `UTC`       | Calendar time zone (Windows or IANA name)                        |
+| `GRAPH_MCP_NO_BROWSER`              | `false`     | Don't open a browser or copy the code during sign-in             |
+| `MICROSOFT_CACHE_PATH`              | per profile | Override the token cache file                                    |
+| `MSAL_USE_PLAINTEXT_CACHE`          | `false`     | Linux without a keyring only                                     |
 
-See [`SECURITY.md`](SECURITY.md) for responsible disclosure procedures and reporting security issues.
+## Troubleshooting
+
+| Symptom                                                                               | Cause and fix                                                                                                                             |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `MailboxNotEnabledForRESTAPI` / health check says "no active Exchange Online licence" | The account's licence was removed or expired. An administrator must reassign it; a soft-deleted mailbox is recoverable for about 30 days. |
+| Tool returns "Microsoft sign-in required ... enter the code"                          | Open the link, enter the code, retry. Or run `npm run auth` / `scripts\login.ps1`.                                                        |
+| "is outside the allowed folders" / "protected location"                               | A guardrail fired. Pick another path, or widen `GRAPH_MCP_WRITE_DIRS` / `GRAPH_MCP_READ_DIRS` deliberately.                               |
+| "outbound tools are disabled"                                                         | Use a draft tool, or set `GRAPH_MCP_ENABLE_OUTBOUND=true` for that server.                                                                |
+| Token cache errors after a Windows reinstall or profile move                          | The DPAPI key changed. The server resets the cache; sign in again.                                                                        |
+
+## Development
+
+```bash
+npm run dev     # tsc --watch
+npm test        # build + node:test unit tests (guardrails, tool filtering, scopes)
+```
+
+The code is split into `config.ts` (settings), `auth.ts` (MSAL and token cache), `scopes.ts`, `policy.ts` (guardrails), `tools.ts` (catalogue), `handlers.ts` (Graph calls), `errors.ts` and `index.ts` (MCP wiring).
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability.
 
 ## License
 
